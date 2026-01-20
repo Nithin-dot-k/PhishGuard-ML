@@ -1,19 +1,15 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-import joblib # New tool to save the model
+import joblib
 
-# 1. Load data
 df = pd.read_csv('phishing_data.csv')
-X = df.drop('target', axis=1) 
-y = df['target']
+X = df.drop('target', axis=1) # Features (now 5 of them!)
+y = df['target'] # Label
 
-# 2. Split and Train
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+print(f"🧠 Training on clues: {X.columns.tolist()}")
+
 model = RandomForestClassifier(n_estimators=100)
-model.fit(X_train, y_train)
+model.fit(X, y)
 
-# 3. Save the model to a file
 joblib.dump(model, 'phishing_model.pkl')
-print("💾 Model saved as 'phishing_model.pkl'")
+print("✅ Model RE-TRAINED and saved!")
