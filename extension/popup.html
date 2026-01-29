@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head>
+    <style>
+      body {
+        width: 300px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        padding: 15px;
+        margin: 0;
+      }
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .header {
+        font-weight: bold;
+        font-size: 18px;
+        margin-bottom: 10px;
+        color: #1e3a8a;
+      }
+      #status {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 15px;
+        text-align: center;
+      }
+      .result-box {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        display: none;
+      }
+      .high {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #f87171;
+      }
+      .low {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #4ade80;
+      }
+      .score {
+        font-size: 24px;
+        font-weight: bold;
+      }
+    </style>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">🛡️ PhishGuard AI</div>
+      <div id="status">Scanning current tab...</div>
+      <div id="result-box" class="result-box">
+        <div id="verdict">Checking...</div>
+        <div class="score" id="score-val">0%</div>
+        <div style="font-size: 11px; margin-top: 5px">Risk Probability</div>
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

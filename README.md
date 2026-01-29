@@ -1,34 +1,45 @@
-# 🛡️ PhishGuard AI: Threat Analysis Dashboard
+# 🛡️ PhishGuard: AI-Powered Phishing Detection System
 
-PhishGuard is an Intelligent Machine Learning-based URL scanner that detects phishing attempts using behavioral, structural, and heuristic analysis.
+PhishGuard is a high-performance cybersecurity tool that combines **Machine Learning** with **Heuristic Analysis** to detect phishing websites in real-time. It consists of a FastAPI backend running a Random Forest model and a Chrome Extension for a seamless user experience.
 
 ## 🚀 Key Features
 
-- **Explainable AI (XAI) Dashboard**: Instead of a simple "Yes/No," the app provides a **Risk Percentage** and explains the specific threat factors (e.g., "New Domain," "No HTTPS").
-- **Machine Learning Engine**: Powered by a **Random Forest Classifier** trained on URL structural patterns.
-- **Heuristic Brand Detection**: Specifically identifies "Social Engineering" attempts by scanning for brand keywords (Paypal, Bank, etc.) in suspicious domains.
-- **Cyber Intelligence Integration**: Real-time **WHOIS lookups** fetch domain seniority with timezone-naive normalization for accurate risk weighting.
-- **Interactive UI**: Built with Streamlit, featuring a dynamic **Risk Gauge** for immediate visual alerts.
+- **AI-Driven Analysis:** Uses a Random Forest Classifier to evaluate URL structure and domain age.
+- **Hybrid Detection:** Employs a Heuristic Layer (Brand Boosting) to catch spoofing attempts on brands like Amazon and PayPal.
+- **Whitelist Layer:** Zero-latency trust for verified domains (Google, GitHub, etc.).
+- **Real-time Protection:** Chrome Extension interface provides instant risk scores while browsing.
 
 ## 🛠️ Tech Stack
 
-- **Language**: Python 3.x
-- **ML Library**: Scikit-Learn (Random Forest)
-- **Web Framework**: Streamlit
-- **Network Tools**: `python-whois`, `tldextract`
-- **Data Handling**: Pandas, Joblib
+- **Backend:** Python, FastAPI, Uvicorn
+- **AI/ML:** Scikit-learn, Pandas, Joblib
+- **Frontend:** JavaScript (Chrome Extension API), HTML5, CSS3
+- **Data:** TLDextract, Python-Whois
 
-## 📊 How It Works
+## 📐 Architecture
 
-1. **Feature Extraction**: The app extracts 5 key features from the URL (Length, Dots, Symbols, HTTPS, and Domain Age).
-2. **Probability Scoring**: The Random Forest model calculates a confidence score based on trained patterns.
-3. **Risk Boosting**: A heuristic layer checks for brand spoofing and boosts the risk score if sensitive keywords are detected.
-4. **Visual Verdict**: The user receives a color-coded assessment (Low/Medium/High Risk).
+1. **User** visits a website.
+2. **Chrome Extension** captures the URL and sends it to the **FastAPI Server**.
+3. **Server** checks the **Whitelist**.
+4. If not whitelisted, the **AI Model** predicts risk based on 5 features (Length, Dots, HTTPS, etc.).
+5. **Heuristic Engine** checks for brand impersonation and adjusts the score dynamically.
+6. **Risk Score** is returned and displayed in a color-coded UI.
 
-## 🚦 Usage
+## 🔧 Installation & Setup
 
-1. **Clone the repo**
-2. **Install dependencies**:  
-   `pip install -r requirements.txt`
-3. **Run the app**:  
-   `streamlit run app.py`
+### 1. Backend Setup
+
+```bash
+# Clone the repository
+git clone [https://github.com/your-username/PhishGuard.git](https://github.com/your-username/PhishGuard.git)
+cd PhishGuard
+
+# Activate virtual environment
+.\venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the AI Engine
+python main.py
+```
