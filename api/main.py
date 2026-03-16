@@ -7,10 +7,6 @@ import tldextract
 import whois
 from datetime import datetime
 import uvicorn
-import os
-
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "phishing_model.pkl")
 
 app = FastAPI()
 
@@ -25,7 +21,7 @@ app.add_middleware(
 # --- 1. LOAD AI MODEL ---
 print("🚀 Loading AI Model...")
 try:
-    model = joblib.load(MODEL_PATH)
+    model = joblib.load('phishing_model.pkl')
     print("✅ Model loaded successfully!")
 except Exception as e:
     print(f"❌ ERROR loading model: {e}")
