@@ -2,124 +2,69 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
-import pandas as pd
-import tldextract
-import whois
-from datetime import datetime
-import uvicorn
+import re
+import os
+from urllib.parse import urlparse
 
 app = FastAPI()
 
-# Fix CORS errors so the Browser Extension can talk to this Python server
+# ✅ CORS — required for Chrome extension to receive the response
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["*"],
+    allow_methods=["POST", "GET", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# --- 1. LOAD AI MODEL ---
-print("🚀 Loading AI Model...")
+# ✅ Load model using absolute path (required for Vercel serverless)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "phishing_model.pkl")
+
 try:
-    model = joblib.load('phishing_model.pkl')
-    print("✅ Model loaded successfully!")
+    model = joblib.load(MODEL_PATH)
+    model_loaded = True
 except Exception as e:
-    print(f"❌ ERROR loading model: {e}")
+    model_loaded = False
+    model_error = str(e)
 
-# --- 2. CONFIGURATION ---
-SUSPICIOUS_KEYWORDS = ['paypal', 'login', 'verify', 'bank', 'secure', 'update', 'account', 'signin', 'amazon', 'netflix', 'microsoft', 'google']
-WHITELIST = ['google.com', 'github.com', 'microsoft.com', 'stackoverflow.com', 'gemini.google.com', 'openai.com', 'amazon.com', 'paypal.com']
-
-class UrlRequest(BaseModel):
+class URLRequest(BaseModel):
     url: str
 
-def get_age(url):
-    """Safely calculate domain age in days."""
-    try:
-        ext = tldextract.extract(url)
-        domain = f"{ext.domain}.{ext.suffix}"
-        w = whois.whois(domain)
-        date = w.creation_date
-        
-        if isinstance(date, list): 
-            date = date[0]
-        if date is None:
-            return 0
-            
-        if hasattr(date, 'tzinfo') and date.tzinfo is not None: 
-            date = date.replace(tzinfo=None)
-        
-        age = (datetime.now() - date).days
-        return max(age, 0) 
-    except Exception:
-        return 0
+# ✅ Match EXACTLY the features your model was trained on
+def extract_features(url: str):
+    parsed = urlparse(url)
+    return [[
+        len(url),                                              # url_length
+        url.count('.'),                                        # dot_count
+        1 if parsed.scheme == 'https' else 0,                 # has_https
+        1 if re.search(r'\d+\.\d+\.\d+\.\d+', url) else 0,  # has_ip
+        url.count('-'),                                        # hyphen_count
+    ]]
 
 @app.get("/")
-def home():
-    return {"message": "PhishGuard Server is Running!"}
+def root():
+    return {"status": "PhishGuard API is running", "model_loaded": model_loaded}
 
-@app.post("/analyze")
-async def analyze_url(request: UrlRequest):
-    url = request.url.lower()
-    print(f"\n🔍 Analyzing: {url}")
-    
-    # --- 3. WHITELIST CHECK ---
-    ext = tldextract.extract(url)
-    domain = f"{ext.domain}.{ext.suffix}"
-    if domain in WHITELIST:
-        print(f"✅ Whitelisted domain: {domain}")
+@app.post("/api/main/analyze")
+async def analyze(request: URLRequest):
+    if not model_loaded:
         return {
-            "url": url,
-            "risk_score": 0,
-            "is_brand_spoof": False,
-            "age_days": 9999
+            "url": request.url,
+            "risk_score": -1,
+            "error": f"Model failed to load: {model_error}"
         }
+    try:
+        features = extract_features(request.url)
+        probability = model.predict_proba(features)[0][1]
+        risk_score = round(probability * 100)
 
-    # --- 4. FEATURE EXTRACTION ---
-    age = get_age(url)
-    has_brand_keyword = 1 if any(word in url for word in SUSPICIOUS_KEYWORDS) else 0
-    
-    features = [
-        len(url),
-        1 if '@' in url else 0,
-        1 if url.startswith('https') else 0,
-        url.count('.'),
-        age
-    ]
-    
-    # --- 5. AI PREDICTION ---
-    df_input = pd.DataFrame([features], columns=['url_length', 'has_at_symbol', 'has_https', 'no_of_dots', 'domain_age_days'])
-    probabilities = model.predict_proba(df_input)[0]
-    
-    # Probability of being phishing (class 1)
-    risk_score = int(probabilities[1] * 100)
-    print(f"📊 AI Base Score: {risk_score}%")
-
-    # --- 6. DYNAMIC BRAND BOOST ---
-    # Instead of a flat +40, we use a multiplier for a more realistic range
-    if has_brand_keyword:
-        # Increase the risk by 50% of its current value
-        risk_score = int(risk_score * 1.5)
-        
-        # Ensure that if it has a brand keyword but isn't whitelisted, 
-        # it hits at least a "Medium-High" risk floor
-        if risk_score < 60:
-            risk_score = 65
-        
-        print(f"🚩 Brand Keyword Detected. Dynamic Score: {min(risk_score, 100)}%")
-    
-    final_score = min(risk_score, 100)
-    print(f"🎯 Final Verdict: {final_score}% Risk")
-    
-    return {
-        "url": url,
-        "risk_score": final_score,
-        "age_days": age,
-        "is_brand_spoof": bool(has_brand_keyword)
-    }
-
-# if __name__ == "__main__":
-#     print("📡 PhishGuard Engine starting on http://127.0.0.1:8000")
-#     uvicorn.run(app, host="127.0.0.1", port=8000)
-
-
+        return {
+            "url": request.url,
+            "risk_score": risk_score   # ✅ exact key your popup.js reads
+        }
+    except Exception as e:
+        return {
+            "url": request.url,
+            "risk_score": -1,
+            "error": str(e)
+        }
