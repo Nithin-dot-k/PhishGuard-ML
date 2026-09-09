@@ -1,67 +1,43 @@
+import sys
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import joblib
-import re
-import os
-from urllib.parse import urlparse
 
-app = FastAPI()
+# Add parent directory to sys.path for Vercel serverless context
+BASE_DIR = Path(__file__).resolve().parents[1]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
-# ✅ CORS — required for Chrome extension to receive the response
+from src.phishguard.predictor import analyze_url
+
+app = FastAPI(
+    title="PhishGuard Serverless API",
+    description="Vercel serverless endpoint for PhishGuard AI"
+)
+
+# Enable CORS for Chrome extension
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["POST", "GET", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
-
-# ✅ Load model using absolute path (required for Vercel serverless)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "phishing_model.pkl")
-
-try:
-    model = joblib.load(MODEL_PATH)
-    model_loaded = True
-except Exception as e:
-    model_loaded = False
-    model_error = str(e)
 
 class URLRequest(BaseModel):
     url: str
 
-# ✅ Match EXACTLY the features your model was trained on
-def extract_features(url: str):
-    parsed = urlparse(url)
-    return [[
-        len(url),                                              # url_length
-        url.count('.'),                                        # dot_count
-        1 if parsed.scheme == 'https' else 0,                 # has_https
-        1 if re.search(r'\d+\.\d+\.\d+\.\d+', url) else 0,  # has_ip
-        url.count('-'),                                        # hyphen_count
-    ]]
-
 @app.get("/")
 def root():
-    return {"status": "PhishGuard API is running", "model_loaded": model_loaded}
+    return {"status": "PhishGuard Vercel API is running"}
 
 @app.post("/api/main/analyze")
+@app.post("/api/analyze")
 async def analyze(request: URLRequest):
-    if not model_loaded:
-        return {
-            "url": request.url,
-            "risk_score": -1,
-            "error": f"Model failed to load: {model_error}"
-        }
     try:
-        features = extract_features(request.url)
-        probability = model.predict_proba(features)[0][1]
-        risk_score = round(probability * 100)
-
-        return {
-            "url": request.url,
-            "risk_score": risk_score   # ✅ exact key your popup.js reads
-        }
+        # Vercel serverless operates without WHOIS to ensure fast execution (<500ms)
+        result = analyze_url(request.url, enable_whois=False)
+        return result
     except Exception as e:
         return {
             "url": request.url,
