@@ -18,18 +18,18 @@ The system is architected as a modular Python engine supporting a **FastAPI REST
 graph TD
     User([🌐 User Browses Web]) -->|Active Tab URL| Ext[🧩 Chrome Extension / Streamlit Dashboard]
     Ext -->|HTTP POST /api/analyze| API[⚡ FastAPI Backend Engine]
-    
+
     subgraph Core Engine [src/phishguard]
         API --> WL{1. Whitelist Check}
         WL -->|Whitelisted Domain| Safe[🟢 Risk Score: 0% / Safe]
-        
+
         WL -->|Not Whitelisted| FE[2. Feature Extractor]
         FE -->|7-Feature Vector| RF[3. Random Forest Classifier]
-        
+
         RF -->|ML Probability| HE[4. Heuristic Engine]
         HE -->|Check Brand Spoofing| Result[🎯 Final Risk Verdict & Threat Factors]
     end
-    
+
     Result -->|JSON Payload| Ext
 ```
 
@@ -50,15 +50,15 @@ graph TD
 
 PhishGuard extracts a **7-dimensional numerical feature vector** from every URL to train and infer malicious intent:
 
-| Feature Name | Type | Description | Security Significance |
-| :--- | :--- | :--- | :--- |
-| `url_length` | `int` | Total character count of the URL | Phishing URLs often use long, obfuscated paths to hide destinations. |
-| `has_at_symbol` | `binary` | Presence of `@` symbol (`1` or `0`) | `@` causes browsers to ignore preceding credentials, hiding true hosts. |
-| `has_https` | `binary` | HTTPS protocol usage (`1` or `0`) | Absence of TLS encryption indicates insecure or suspicious sites. |
-| `no_of_dots` | `int` | Subdomain & dot count (`.`) | Excessive subdomains (e.g., `paypal.verify.account.com`) spoof legitimate brands. |
-| `has_ip` | `binary` | Raw IP address host (`1` or `0`) | Legitimate companies rarely host public user portals on raw IP addresses. |
-| `hyphen_count` | `int` | Count of hyphens (`-`) in host | Attackers frequently use hyphenated typosquatting domains (`pay-pal-login.com`). |
-| `domain_age_days` | `int` | Registered domain age in days | Newly registered domains (<30 days) account for a high percentage of phishing. |
+| Feature Name      | Type     | Description                         | Security Significance                                                             |
+| :---------------- | :------- | :---------------------------------- | :-------------------------------------------------------------------------------- |
+| `url_length`      | `int`    | Total character count of the URL    | Phishing URLs often use long, obfuscated paths to hide destinations.              |
+| `has_at_symbol`   | `binary` | Presence of `@` symbol (`1` or `0`) | `@` causes browsers to ignore preceding credentials, hiding true hosts.           |
+| `has_https`       | `binary` | HTTPS protocol usage (`1` or `0`)   | Absence of TLS encryption indicates insecure or suspicious sites.                 |
+| `no_of_dots`      | `int`    | Subdomain & dot count (`.`)         | Excessive subdomains (e.g., `paypal.verify.account.com`) spoof legitimate brands. |
+| `has_ip`          | `binary` | Raw IP address host (`1` or `0`)    | Legitimate companies rarely host public user portals on raw IP addresses.         |
+| `hyphen_count`    | `int`    | Count of hyphens (`-`) in host      | Attackers frequently use hyphenated typosquatting domains (`pay-pal-login.com`).  |
+| `domain_age_days` | `int`    | Registered domain age in days       | Newly registered domains (<30 days) account for a high percentage of phishing.    |
 
 ---
 
@@ -66,16 +66,24 @@ PhishGuard extracts a **7-dimensional numerical feature vector** from every URL 
 
 ```text
 PhishGuard-ML/
+├── pyproject.toml                  # Package metadata and tool configuration
+├── requirements.txt                # Runtime and test dependencies
+├── .env.example                    # Environment variable template
+├── .github/workflows/ci.yml        # Continuous integration checks
 ├── data/
 │   ├── raw/
-│   │   └── phishing_data.csv        # Normalized training dataset
-│   └── create_dataset.py            # Dataset synthesis & preparation script
+│   │   └── phishing_data.csv        # Canonical training dataset
 ├── models/
 │   ├── phishing_model.pkl           # Serialized Random Forest model binary
-│   └── train_model.py               # Training pipeline & Vercel deployment sync
+│   └── README.md                    # Model artifact notes (optional)
+├── scripts/
+│   ├── create_dataset.py            # Dataset synthesis and preparation
+│   └── train_model.py               # Training pipeline and deployment sync
 ├── src/
 │   └── phishguard/                  # Core Python Package
 │       ├── __init__.py              # Package initialization
+│       ├── api/                     # FastAPI app and request schemas
+│       ├── dashboard/               # Streamlit dashboard implementation
 │       ├── feature_extractor.py     # Unified feature extraction engine
 │       ├── heuristic_engine.py      # Whitelist & brand spoofing rules
 │       └── predictor.py             # Inference pipeline & model loading
@@ -91,9 +99,8 @@ PhishGuard-ML/
 ├── tests/                           # Automated Test Suite (Pytest)
 │   ├── test_features.py             # Feature extractor & heuristic tests
 │   └── test_api.py                  # Integration tests for FastAPI endpoints
-├── app.py                           # Streamlit Security Dashboard
-├── main.py                          # Local FastAPI server entry point
-├── requirements.txt                 # Project dependencies
+├── app.py                           # Compatibility launcher for dashboard
+├── main.py                          # Compatibility launcher for local API
 ├── vercel.json                      # Vercel serverless routing configuration
 └── README.md                        # Project documentation
 ```
@@ -121,13 +128,15 @@ python -m pip install -r requirements.txt
 
 ### 3. Model Training & Pipeline Sync
 
-To train the Random Forest model and synchronize artifacts across local and serverless endpoints:
+To generate the dataset and train the Random Forest model:
 
 ```bash
-python models/train_model.py
+python scripts/create_dataset.py
+python scripts/train_model.py
 ```
 
-*Output:*
+_Output:_
+
 ```text
 [INFO] Training RandomForestClassifier on features: ['url_length', 'has_at_symbol', 'has_https', 'no_of_dots', 'has_ip', 'hyphen_count', 'domain_age_days']
 [SUCCESS] Model saved to 'D:\Practice\PhishGuard-ML\models\phishing_model.pkl'
@@ -142,7 +151,7 @@ Run the Pytest suite to verify system integrity:
 python -m pytest tests/
 ```
 
-*Expected output:* `10 passed in 4.55s`
+_Expected output:_ `10 passed in 4.55s`
 
 ---
 
@@ -153,6 +162,10 @@ python -m pytest tests/
 ```bash
 python main.py
 ```
+
+`main.py` is a small compatibility launcher; the application itself lives in
+`src/phishguard/api/app.py`.
+
 - **Local Server**: `http://127.0.0.1:8000`
 - **Swagger Interactive API Docs**: `http://127.0.0.1:8000/docs`
 - **Health Endpoint**: `http://127.0.0.1:8000/health`
@@ -162,6 +175,9 @@ python main.py
 ```bash
 streamlit run app.py
 ```
+
+`app.py` is a small compatibility launcher; the dashboard itself lives in
+`src/phishguard/dashboard/app.py`.
 This opens an interactive security analytics UI in your browser where you can analyze any URL and inspect the full feature matrix.
 
 ### 3. Install Chrome Extension (Manifest V3)
@@ -180,6 +196,7 @@ This opens an interactive security analytics UI in your browser where you can an
 Analyzes a target URL and returns risk assessment details.
 
 #### Request Body
+
 ```json
 {
   "url": "http://paypal-verify-account.suspicious-domain.com",
@@ -188,6 +205,7 @@ Analyzes a target URL and returns risk assessment details.
 ```
 
 #### Response Body (`200 OK`)
+
 ```json
 {
   "url": "http://paypal-verify-account.suspicious-domain.com",
@@ -226,4 +244,4 @@ Analyzes a target URL and returns risk assessment details.
 
 This project is developed for **Educational & Portfolio Purposes**. Feel free to explore, modify, and build upon this codebase.
 
-*Built with Python, Scikit-Learn, FastAPI, Streamlit, and Chrome Extension API.*
+_Built with Python, Scikit-Learn, FastAPI, Streamlit, and Chrome Extension API._
