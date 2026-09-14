@@ -1,247 +1,223 @@
-# 🛡️ PhishGuard AI: Next-Gen Real-Time Phishing Detection Engine
+# PhishGuard ML
 
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)](https://fastapi.tiangolo.com/)
-[![Scikit-Learn](https://img.shields.io/badge/scikit--learn-1.0%2B-F7931E.svg)](https://scikit-learn.org/)
-[![Manifest V3](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/)
-[![Build Status](https://img.shields.io/badge/tests-10%2F10%20passing-brightgreen.svg)]()
+PhishGuard ML is a Python service that combines a scikit-learn classifier with deterministic URL heuristics to produce phishing-risk assessments. It exposes the detection engine through a FastAPI service, a Streamlit dashboard, a Vercel serverless entry point, and a Manifest V3 browser extension.
 
-**PhishGuard AI** is an enterprise-structured cybersecurity intelligence platform designed to detect malicious phishing websites in real-time. By orchestrating **Machine Learning (Random Forest Classification)** with a **Dynamic Heuristic Engine** and **Zero-Latency Whitelisting**, PhishGuard delivers high-precision risk scores with actionable threat explanations.
+This repository is an educational and portfolio project. The model and rules are not a replacement for a production threat-intelligence service, browser isolation, or security review.
 
-The system is architected as a modular Python engine supporting a **FastAPI REST Server**, a **Vercel Serverless API**, an interactive **Streamlit Threat Dashboard**, a **Manifest V3 Chrome Extension**, and a comprehensive **Pytest Automated Test Suite**.
+## Features
 
----
+- Hybrid URL analysis using a Random Forest model and heuristic rules.
+- Trusted-domain allowlist with a zero-risk result for allowlisted domains.
+- Brand-impersonation detection for suspicious domains.
+- Optional WHOIS-based domain-age extraction.
+- FastAPI JSON API with health and analysis endpoints.
+- Streamlit dashboard for interactive analysis.
+- Chrome Manifest V3 extension with cloud and local API fallback.
+- Pytest unit and API tests with GitHub Actions CI.
 
-## 🏛️ System Architecture & Workflow
+## Architecture
 
 ```mermaid
-graph TD
-    User([🌐 User Browses Web]) -->|Active Tab URL| Ext[🧩 Chrome Extension / Streamlit Dashboard]
-    Ext -->|HTTP POST /api/analyze| API[⚡ FastAPI Backend Engine]
-
-    subgraph Core Engine [src/phishguard]
-        API --> WL{1. Whitelist Check}
-        WL -->|Whitelisted Domain| Safe[🟢 Risk Score: 0% / Safe]
-
-        WL -->|Not Whitelisted| FE[2. Feature Extractor]
-        FE -->|7-Feature Vector| RF[3. Random Forest Classifier]
-
-        RF -->|ML Probability| HE[4. Heuristic Engine]
-        HE -->|Check Brand Spoofing| Result[🎯 Final Risk Verdict & Threat Factors]
-    end
-
-    Result -->|JSON Payload| Ext
+flowchart LR
+    Client[Dashboard or Extension] --> API[FastAPI application]
+    API --> Engine[phishguard predictor]
+    Engine --> Rules[Whitelist and heuristics]
+    Engine --> Features[Feature extraction]
+    Features --> Model[Random Forest model]
+    Rules --> Result[Risk assessment]
+    Model --> Result
 ```
 
----
+The analysis pipeline extracts these features from a URL:
 
-## ✨ Key Features & Highlights
+| Feature           | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `url_length`      | Total URL length                                  |
+| `has_at_symbol`   | Whether the URL contains `@`                      |
+| `has_https`       | Whether the URL uses HTTPS                        |
+| `no_of_dots`      | Number of dots in the URL                         |
+| `has_ip`          | Whether the host is a raw IPv4 address            |
+| `hyphen_count`    | Number of hyphens in the URL                      |
+| `domain_age_days` | Domain age from WHOIS when enabled; otherwise `0` |
 
-- **🤖 Hybrid Detection Engine**: Combines statistical ML probability with rule-based heuristics to reduce false positives.
-- **⚡ Zero-Latency Whitelist Layer**: Instantly verifies trusted domains (`google.com`, `github.com`, `microsoft.com`) to bypass heavy processing.
-- **🚩 Brand Impersonation Protection**: Detects targeted brand keywords (`paypal`, `bank`, `login`, `amazon`) on unverified domain structures.
-- **🧩 Browser Extension Interface**: Real-time Chrome popup badge showing safety status, risk score, and detected risk vectors.
-- **📊 Interactive Security Dashboard**: Built with Streamlit for dynamic URL analysis, feature matrix inspection, and risk confidence visualization.
-- **🧪 100% Test Coverage**: Complete Pytest test suite covering feature extraction, whitelist logic, and API route contracts.
-
----
-
-## 🔬 Feature Vector Matrix
-
-PhishGuard extracts a **7-dimensional numerical feature vector** from every URL to train and infer malicious intent:
-
-| Feature Name      | Type     | Description                         | Security Significance                                                             |
-| :---------------- | :------- | :---------------------------------- | :-------------------------------------------------------------------------------- |
-| `url_length`      | `int`    | Total character count of the URL    | Phishing URLs often use long, obfuscated paths to hide destinations.              |
-| `has_at_symbol`   | `binary` | Presence of `@` symbol (`1` or `0`) | `@` causes browsers to ignore preceding credentials, hiding true hosts.           |
-| `has_https`       | `binary` | HTTPS protocol usage (`1` or `0`)   | Absence of TLS encryption indicates insecure or suspicious sites.                 |
-| `no_of_dots`      | `int`    | Subdomain & dot count (`.`)         | Excessive subdomains (e.g., `paypal.verify.account.com`) spoof legitimate brands. |
-| `has_ip`          | `binary` | Raw IP address host (`1` or `0`)    | Legitimate companies rarely host public user portals on raw IP addresses.         |
-| `hyphen_count`    | `int`    | Count of hyphens (`-`) in host      | Attackers frequently use hyphenated typosquatting domains (`pay-pal-login.com`).  |
-| `domain_age_days` | `int`    | Registered domain age in days       | Newly registered domains (<30 days) account for a high percentage of phishing.    |
-
----
-
-## 📂 Project Directory Structure
+## Repository Layout
 
 ```text
-PhishGuard-ML/
-├── pyproject.toml                  # Package metadata and tool configuration
-├── requirements.txt                # Runtime and test dependencies
-├── .env.example                    # Environment variable template
-├── .github/workflows/ci.yml        # Continuous integration checks
-├── data/
-│   ├── raw/
-│   │   └── phishing_data.csv        # Canonical training dataset
-├── models/
-│   ├── phishing_model.pkl           # Serialized Random Forest model binary
-│   └── README.md                    # Model artifact notes (optional)
-├── scripts/
-│   ├── create_dataset.py            # Dataset synthesis and preparation
-│   └── train_model.py               # Training pipeline and deployment sync
-├── src/
-│   └── phishguard/                  # Core Python Package
-│       ├── __init__.py              # Package initialization
-│       ├── api/                     # FastAPI app and request schemas
-│       ├── dashboard/               # Streamlit dashboard implementation
-│       ├── feature_extractor.py     # Unified feature extraction engine
-│       ├── heuristic_engine.py      # Whitelist & brand spoofing rules
-│       └── predictor.py             # Inference pipeline & model loading
-├── api/                             # Serverless Cloud API (Vercel)
-│   ├── main.py                      # Vercel FastAPI entrypoint
-│   ├── requirements.txt
-│   └── phishing_model.pkl           # Synced model binary for cloud deployment
-├── extension/                       # Chrome Extension (Manifest V3)
-│   ├── manifest.json                # Extension manifest configuration
-│   ├── popup.html                   # Extension UI container
-│   ├── popup.js                     # Extension logic & local/cloud API fallback
-│   └── icon.png                     # Extension icon asset
-├── tests/                           # Automated Test Suite (Pytest)
-│   ├── test_features.py             # Feature extractor & heuristic tests
-│   └── test_api.py                  # Integration tests for FastAPI endpoints
-├── app.py                           # Compatibility launcher for dashboard
-├── main.py                          # Compatibility launcher for local API
-├── vercel.json                      # Vercel serverless routing configuration
-└── README.md                        # Project documentation
+.
+├── api/                         # Vercel entry point and deployment model copy
+├── data/raw/                    # Canonical training dataset
+├── extension/                   # Chrome Manifest V3 extension
+├── models/                      # Local model artifact and artifact notes
+├── scripts/                     # Canonical dataset and model commands
+├── src/phishguard/              # Application package
+│   ├── api/                     # FastAPI app and request schemas
+│   ├── dashboard/               # Streamlit application
+│   ├── feature_extractor.py     # URL feature extraction
+│   ├── heuristic_engine.py      # Allowlist and rule-based checks
+│   └── predictor.py             # Model loading and inference pipeline
+├── tests/                       # Unit and API tests
+├── app.py                       # Dashboard compatibility launcher
+├── main.py                      # Local API compatibility launcher
+├── pyproject.toml               # Python package and tool configuration
+├── requirements.txt             # Runtime and test dependencies
+└── vercel.json                  # Vercel routing configuration
 ```
 
----
+The canonical training commands are in `scripts/`. The older dataset/training files under `data/` and `models/` are retained for compatibility with the existing repository history; new development should use the scripts in `scripts/`.
 
-## 🚀 Getting Started & Setup Guide
+## Documentation
 
-### 1. Prerequisites
+Detailed engineering documentation is available in the [`docs/`](docs/) directory:
 
-Ensure you have **Python 3.10+** installed on your system.
+- [`docs/project-structure.md`](docs/project-structure.md): exact file-by-file repository inventory and ownership rules.
+- [`docs/architecture.md`](docs/architecture.md): runtime request flow, model pipeline, and deployment boundaries.
+- [`docs/development.md`](docs/development.md): setup, training, testing, local execution, extension use, and deployment commands.
 
-### 2. Installation
+## Requirements
 
-Clone the repository and install required dependencies:
+- Python 3.10 or newer
+- pip
+- Google Chrome, only if using the extension
+
+## Setup
+
+Create and activate a virtual environment, then install dependencies:
 
 ```bash
-# Clone repository
-git clone https://github.com/your-username/PhishGuard-ML.git
-cd PhishGuard-ML
+python -m venv .venv
+```
 
-# Install dependencies
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### 3. Model Training & Pipeline Sync
+macOS or Linux:
 
-To generate the dataset and train the Random Forest model:
+```bash
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+## Train the Model
+
+Generate the canonical dataset and train the model:
 
 ```bash
 python scripts/create_dataset.py
 python scripts/train_model.py
 ```
 
-_Output:_
+This writes the local artifact to `models/phishing_model.pkl` and copies the deployment artifact to `api/phishing_model.pkl`. These files are generated outputs; do not edit them manually.
 
-```text
-[INFO] Training RandomForestClassifier on features: ['url_length', 'has_at_symbol', 'has_https', 'no_of_dots', 'has_ip', 'hyphen_count', 'domain_age_days']
-[SUCCESS] Model saved to 'D:\Practice\PhishGuard-ML\models\phishing_model.pkl'
-[SUCCESS] Model copied to Vercel API directory at 'D:\Practice\PhishGuard-ML\api\phishing_model.pkl'
-```
+## Run the API
 
-### 4. Running Automated Tests
-
-Run the Pytest suite to verify system integrity:
-
-```bash
-python -m pytest tests/
-```
-
-_Expected output:_ `10 passed in 4.55s`
-
----
-
-## 💻 Usage & Entry Points
-
-### 1. Launch FastAPI Local Backend Server
+Start the local FastAPI server:
 
 ```bash
 python main.py
 ```
 
-`main.py` is a small compatibility launcher; the application itself lives in
-`src/phishguard/api/app.py`.
+The API is available at `http://127.0.0.1:8000`. Interactive documentation is available at `/docs` and the health check is available at `/health`.
 
-- **Local Server**: `http://127.0.0.1:8000`
-- **Swagger Interactive API Docs**: `http://127.0.0.1:8000/docs`
-- **Health Endpoint**: `http://127.0.0.1:8000/health`
+Run the application directly with Uvicorn when the package is on the Python path:
 
-### 2. Launch Streamlit Threat Dashboard
+```bash
+uvicorn phishguard.api.app:app --app-dir src --reload
+```
+
+## Run the Dashboard
 
 ```bash
 streamlit run app.py
 ```
 
-`app.py` is a small compatibility launcher; the dashboard itself lives in
-`src/phishguard/dashboard/app.py`.
-This opens an interactive security analytics UI in your browser where you can analyze any URL and inspect the full feature matrix.
+The dashboard accepts a URL and displays the final risk score, verdict, threat factors, and extracted features.
 
-### 3. Install Chrome Extension (Manifest V3)
-
-1. Open Google Chrome and navigate to `chrome://extensions`.
-2. Enable **Developer mode** using the toggle switch in the top right.
-3. Click **Load unpacked** and select the [`extension`](file:///d:/Practice/PhishGuard-ML/extension) directory.
-4. Open any website and click the **PhishGuard AI** extension icon in your browser toolbar!
-
----
-
-## 📡 REST API Reference
+## API Usage
 
 ### `POST /api/analyze`
 
-Analyzes a target URL and returns risk assessment details.
-
-#### Request Body
+Request:
 
 ```json
 {
-  "url": "http://paypal-verify-account.suspicious-domain.com",
+  "url": "https://example.com",
   "enable_whois": false
 }
 ```
 
-#### Response Body (`200 OK`)
+The legacy routes `/analyze` and `/api/main/analyze` are also supported for existing clients and deployment configuration.
+
+Example response:
 
 ```json
 {
-  "url": "http://paypal-verify-account.suspicious-domain.com",
-  "risk_score": 85,
-  "base_score": 60,
-  "verdict": "HIGH RISK",
-  "is_whitelisted": false,
-  "is_brand_spoof": true,
-  "threat_factors": [
-    "No HTTPS Encryption",
-    "Multiple Hyphens (2)",
-    "Brand Keywords on Untrusted Domain"
-  ],
+  "url": "https://example.com",
+  "risk_score": 0,
+  "base_score": 12,
+  "verdict": "SAFE (Whitelisted)",
+  "is_whitelisted": true,
+  "is_brand_spoof": false,
+  "threat_factors": [],
   "features": {
-    "url_length": 52,
+    "url_length": 19,
     "has_at_symbol": 0,
-    "has_https": 0,
-    "no_of_dots": 2,
+    "has_https": 1,
+    "no_of_dots": 1,
     "has_ip": 0,
-    "hyphen_count": 2,
+    "hyphen_count": 0,
     "domain_age_days": 0
   }
 }
 ```
 
----
+## Test and Quality Checks
 
-## 🛡️ Security & Privacy
+Run the test suite:
 
-- **Data Privacy**: PhishGuard does not store user browsing history. Requests transmit only the URL string for real-time inference.
-- **Serverless Resilience**: Cloud deployments execute feature extraction without blocking network calls, maintaining sub-second API latency.
+```bash
+python -m pytest
+```
 
----
+Compile the Python sources without executing the application:
 
-## 📜 Project Status & Usage
+```bash
+python -m compileall -q src scripts main.py app.py api/main.py
+```
 
-This project is developed for **Educational & Portfolio Purposes**. Feel free to explore, modify, and build upon this codebase.
+GitHub Actions runs the pytest suite for pushes and pull requests. The current tests cover feature extraction, heuristic behavior, and the FastAPI endpoint contract.
 
-_Built with Python, Scikit-Learn, FastAPI, Streamlit, and Chrome Extension API._
+## Vercel Deployment
+
+The Vercel configuration uses `api/main.py` as the serverless entry point:
+
+```bash
+vercel deploy
+```
+
+Before deploying, run the training command so `api/phishing_model.pkl` contains the intended model artifact. The serverless API disables WHOIS lookups for predictable request behavior.
+
+## Browser Extension
+
+1. Open `chrome://extensions` in Chrome.
+2. Enable **Developer mode**.
+3. Select **Load unpacked**.
+4. Choose the repository's `extension/` directory.
+
+The extension tries the configured cloud endpoint first and then the local API at `http://127.0.0.1:8000/api/analyze`.
+
+## Security and Privacy Notes
+
+- The API accepts and processes the submitted URL; callers should avoid sending sensitive URLs to an untrusted deployment.
+- CORS is currently permissive to support the browser extension. Restrict `allow_origins` before using this service in a production environment.
+- WHOIS lookups are external network requests and may be slow or unavailable.
+- A model score is not proof that a website is safe or malicious. Treat the result as one signal in a broader security workflow.
+
+## License and Project Status
+
+This project is intended for educational and portfolio use. Add a project license before distributing it as an open-source package.
